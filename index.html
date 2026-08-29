@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no" />
+<title>Color Car Parking</title>
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <h1>Color Car Parking</h1>
+      <div class="controls">
+        <div class="stat-pill" id="stat">0 / 0 parked</div>
+        <button id="shuffleBtn" class="pill-btn shuffle" type="button">Shuffle</button>
+        <button id="setupBtn" class="pill-btn setup" type="button">Setup</button>
+      </div>
+    </header>
+
+    <main class="game" id="game">
+      <div class="houses-row" id="housesRow"></div>
+      <div class="road"></div>
+      <div class="lot" id="lot"></div>
+    </main>
+  </div>
+
+  <div class="modal-overlay" id="setupOverlay" hidden>
+    <div class="modal setup-modal">
+      <h2>Setup</h2>
+
+      <div class="field">
+        <label>Car colors</label>
+        <div class="stepper" data-key="carColors">
+          <button class="step-btn" data-action="dec" type="button">&minus;</button>
+          <span class="step-value" id="val-carColors">4</span>
+          <button class="step-btn" data-action="inc" type="button">+</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>House colors</label>
+        <div class="stepper" data-key="houseColors">
+          <button class="step-btn" data-action="dec" type="button">&minus;</button>
+          <span class="step-value" id="val-houseColors">4</span>
+          <button class="step-btn" data-action="inc" type="button">+</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Number of cars</label>
+        <div class="stepper" data-key="numCars">
+          <button class="step-btn" data-action="dec" type="button">&minus;</button>
+          <span class="step-value" id="val-numCars">6</span>
+          <button class="step-btn" data-action="inc" type="button">+</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Number of houses</label>
+        <div class="stepper" data-key="numHouses">
+          <button class="step-btn" data-action="dec" type="button">&minus;</button>
+          <span class="step-value" id="val-numHouses">6</span>
+          <button class="step-btn" data-action="inc" type="button">+</button>
+        </div>
+      </div>
+
+      <p class="hint">House colors can never be fewer than car colors, so every car always has a home.</p>
+
+      <div class="modal-actions">
+        <button id="setupCancel" class="pill-btn" type="button">Cancel</button>
+        <button id="setupApply" class="pill-btn primary" type="button">Start New Game</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="winOverlay" hidden>
+    <canvas id="fireworks"></canvas>
+    <div class="modal win-modal">
+      <h2>🎉 All Parked! 🎉</h2>
+      <p>Great job! Every car found its home.</p>
+      <div class="modal-actions">
+        <button id="playAgainBtn" class="pill-btn primary" type="button">Play Again</button>
+        <button id="changeSettingsBtn" class="pill-btn" type="button">Change Settings</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

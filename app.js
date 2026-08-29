@@ -15,11 +15,13 @@
   const MAX_NUM_CARS = 14;
   const MAX_NUM_HOUSES = 8;
 
-  const CAR_W = 60;
-  const CAR_H = 34;
+  const FREE_CAR_W = 78;
+  const FREE_CAR_H = 44;
+  const PARKED_CAR_W = 60;
+  const PARKED_CAR_H = 34;
   const PARK_GAP = 4;
   const PARK_TOP_PADDING = 14;
-  const PARK_ZONE_HEIGHT = PARK_TOP_PADDING * 2 + CAR_H;
+  const PARK_ZONE_HEIGHT = PARK_TOP_PADDING * 2 + PARKED_CAR_H;
 
   function shuffleArray(arr) {
     const a = arr.slice();
@@ -321,7 +323,7 @@
       carEl.className = "car";
       carEl.innerHTML = svgCar(car.color.hex);
 
-      const pos = findFreeSpot(lotRect.width, lotRect.height, CAR_W, CAR_H, placed);
+      const pos = findFreeSpot(lotRect.width, lotRect.height, FREE_CAR_W, FREE_CAR_H, placed);
       placed.push(pos);
       carEl.style.left = `${pos.x}px`;
       carEl.style.top = `${pos.y}px`;
@@ -342,7 +344,7 @@
       const ok = placed.every((p) => {
         const dx = candidate.x - p.x;
         const dy = candidate.y - p.y;
-        return Math.sqrt(dx * dx + dy * dy) > 56;
+        return Math.sqrt(dx * dx + dy * dy) > 68;
       });
       if (ok) {
         best = candidate;
@@ -443,11 +445,11 @@
     const colCenterX = house.id * colWidth + colWidth / 2 - (lotRect.left - gameRect.left);
 
     const n = house.parkedCars.length;
-    const rowWidth = n * CAR_W + (n - 1) * PARK_GAP;
+    const rowWidth = n * PARKED_CAR_W + (n - 1) * PARK_GAP;
     const startX = colCenterX - rowWidth / 2;
 
     house.parkedCars.forEach((car, idx) => {
-      const x = startX + idx * (CAR_W + PARK_GAP);
+      const x = startX + idx * (PARKED_CAR_W + PARK_GAP);
       car.el.style.left = `${x}px`;
       car.el.style.top = `${PARK_TOP_PADDING}px`;
     });

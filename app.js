@@ -39,6 +39,7 @@
   let config = {
     numCars: 6,
     numHouses: 4,
+    limitsEnabled: false,
     houseColorSet: pickDistinct(PALETTE, 3),
     carColorSet: [],
   };
@@ -60,6 +61,7 @@
     setupOverlay: document.getElementById("setupOverlay"),
     setupClose: document.getElementById("setupClose"),
     setupApply: document.getElementById("setupApply"),
+    limitsToggle: document.getElementById("limitsToggle"),
     carSwatches: document.getElementById("carSwatches"),
     houseSwatches: document.getElementById("houseSwatches"),
     winOverlay: document.getElementById("winOverlay"),
@@ -193,6 +195,7 @@
     document.getElementById("val-houseColors").textContent = config.houseColorSet.length;
     document.getElementById("val-numCars").textContent = config.numCars;
     document.getElementById("val-numHouses").textContent = config.numHouses;
+    el.limitsToggle.setAttribute("aria-checked", String(config.limitsEnabled));
 
     el.carSwatches.innerHTML = "";
     config.carColorSet.forEach((color, i) => {
@@ -242,6 +245,11 @@
     });
   });
 
+  el.limitsToggle.addEventListener("click", () => {
+    config.limitsEnabled = !config.limitsEnabled;
+    renderSetupUI();
+  });
+
   let configSnapshot = null;
 
   function openSetup() {
@@ -278,6 +286,67 @@
     return shuffleArray(result);
   }
 
+  // Give some houses a capacity sign. Only colors that appear on more than one
+  // house are eligible, and the limits are always generous enough that every car
+  // still has somewhere to go.
+  function assignHouseLimits() {
+    state.houses.forEach((h) => {
+      h.limit = null;
+    });
+    if (!config.limitsEnabled) return;
+
+    const byColor = new Map();
+    state.houses.forEach((h) => {
+      if (!byColor.has(h.color.name)) byColor.set(h.color.name, []);
+      byColor.get(h.color.name).push(h);
+    });
+
+    const eligible = [];
+
+    byColor.forEach((houses, colorName) => {
+      if (houses.length < 2) return;
+      const carCount = state.cars.filter((c) => c.color.name === colorName).length;
+      if (carCount === 0) return;
+
+      // Deal the cars of this color out across its houses at random. Using that
+      // deal as the floor for each capacity guarantees the board stays solvable
+      // even if every house of the color ends up signed.
+      const dealt = new Array(houses.length).fill(0);
+      for (let i = 0; i < carCount; i++) {
+        dealt[Math.floor(Math.random() * houses.length)]++;
+      }
+
+      // Cap below the color's car count so a sign is always a real constraint.
+      const maxLimit = Math.max(1, carCount - 1);
+      houses.forEach((house, i) => {
+        const slack = Math.random() < 0.5 ? 0 : 1;
+        house.candidateLimit = Math.min(maxLimit, Math.max(1, dealt[i] + slack));
+      });
+      eligible.push(houses);
+    });
+
+    let anySigned = false;
+    eligible.forEach((houses) => {
+      houses.forEach((house) => {
+        if (Math.random() < 0.65) {
+          house.limit = house.candidateLimit;
+          anySigned = true;
+        }
+      });
+    });
+
+    // If the dice said "no signs anywhere", force one so the mode is visible.
+    if (!anySigned && eligible.length) {
+      const houses = eligible[Math.floor(Math.random() * eligible.length)];
+      const house = houses[Math.floor(Math.random() * houses.length)];
+      house.limit = house.candidateLimit;
+    }
+
+    state.houses.forEach((h) => {
+      delete h.candidateLimit;
+    });
+  }
+
   function startNewGame() {
     const houseColors = assignColors(config.houseColorSet, config.numHouses);
     const carColorsAssigned = assignColors(config.carColorSet, config.numCars);
@@ -285,6 +354,7 @@
     state.houses = houseColors.map((color, i) => ({
       id: i,
       color,
+      limit: null,
       parkedCars: [],
     }));
 
@@ -297,6 +367,7 @@
 
     state.parkedCount = 0;
 
+    assignHouseLimits();
     renderHouses();
     renderCars();
     updateStat();
@@ -305,12 +376,44 @@
 
   function renderHouses() {
     el.housesRow.innerHTML = "";
+    const anyLimits = state.houses.some((h) => h.limit !== null);
+    el.housesRow.classList.toggle("has-signs", anyLimits);
+
     state.houses.forEach((house) => {
       const slot = document.createElement("div");
       slot.className = "house-slot";
-      slot.innerHTML = svgHouse(house.color.hex);
+
+      const signArea = document.createElement("div");
+      signArea.className = "sign-area";
+      if (house.limit !== null) {
+        const board = document.createElement("div");
+        board.className = "sign-board";
+        board.textContent = house.limit;
+        const post = document.createElement("div");
+        post.className = "sign-post";
+        signArea.appendChild(board);
+        signArea.appendChild(post);
+        house.signBoardEl = board;
+      } else {
+        house.signBoardEl = null;
+      }
+
+      const art = document.createElement("div");
+      art.className = "house-art";
+      art.innerHTML = svgHouse(house.color.hex);
+
+      slot.appendChild(signArea);
+      slot.appendChild(art);
       el.housesRow.appendChild(slot);
     });
+  }
+
+  function isHouseFull(house) {
+    return house.limit !== null && house.parkedCars.length >= house.limit;
+  }
+
+  function refreshSign(house) {
+    if (house.signBoardEl) house.signBoardEl.classList.toggle("full", isHouseFull(house));
   }
 
   function renderCars() {
@@ -411,7 +514,7 @@
     houseIndex = Math.max(0, Math.min(state.houses.length - 1, houseIndex));
     const house = state.houses[houseIndex];
 
-    if (house.color.name === car.color.name) {
+    if (house.color.name === car.color.name && !isHouseFull(house)) {
       parkCar(car, house);
     } else {
       carEl.style.left = `${drag.startLeft}px`;
@@ -429,6 +532,7 @@
     house.parkedCars.push(car);
 
     layoutHouseRow(house);
+    refreshSign(house);
 
     state.parkedCount++;
     updateStat();

@@ -26,28 +26,12 @@
 
   <div class="modal-overlay" id="setupOverlay" hidden>
     <div class="modal setup-modal">
-      <h2>Setup</h2>
+      <button id="setupClose" class="close-btn" type="button" aria-label="Close">&times;</button>
+      <h2>Color Car Parking</h2>
+      <p class="subtitle">Drag every car to the house with the same color. You choose how big the game is!</p>
 
       <div class="field">
-        <label>Car colors</label>
-        <div class="stepper" data-key="carColors">
-          <button class="step-btn" data-action="dec" type="button">&minus;</button>
-          <span class="step-value" id="val-carColors">4</span>
-          <button class="step-btn" data-action="inc" type="button">+</button>
-        </div>
-      </div>
-
-      <div class="field">
-        <label>House colors</label>
-        <div class="stepper" data-key="houseColors">
-          <button class="step-btn" data-action="dec" type="button">&minus;</button>
-          <span class="step-value" id="val-houseColors">4</span>
-          <button class="step-btn" data-action="inc" type="button">+</button>
-        </div>
-      </div>
-
-      <div class="field">
-        <label>Number of cars</label>
+        <label>Cars</label>
         <div class="stepper" data-key="numCars">
           <button class="step-btn" data-action="dec" type="button">&minus;</button>
           <span class="step-value" id="val-numCars">6</span>
@@ -56,20 +40,45 @@
       </div>
 
       <div class="field">
-        <label>Number of houses</label>
+        <label>Houses</label>
         <div class="stepper" data-key="numHouses">
           <button class="step-btn" data-action="dec" type="button">&minus;</button>
-          <span class="step-value" id="val-numHouses">6</span>
+          <span class="step-value" id="val-numHouses">4</span>
           <button class="step-btn" data-action="inc" type="button">+</button>
         </div>
       </div>
 
-      <p class="hint">House colors can never be fewer than car colors, so every car always has a home.</p>
-
-      <div class="modal-actions">
-        <button id="setupCancel" class="pill-btn" type="button">Cancel</button>
-        <button id="setupApply" class="pill-btn primary" type="button">Start New Game</button>
+      <div class="field">
+        <label>Car colors</label>
+        <div class="stepper" data-key="carColors">
+          <button class="step-btn" data-action="dec" type="button">&minus;</button>
+          <span class="step-value" id="val-carColors">3</span>
+          <button class="step-btn" data-action="inc" type="button">+</button>
+        </div>
       </div>
+
+      <div class="field">
+        <label>House colors</label>
+        <div class="stepper" data-key="houseColors">
+          <button class="step-btn" data-action="dec" type="button">&minus;</button>
+          <span class="step-value" id="val-houseColors">3</span>
+          <button class="step-btn" data-action="inc" type="button">+</button>
+        </div>
+      </div>
+
+      <div class="swatch-row">
+        <span class="swatch-label">Car colors:</span>
+        <div class="swatches" id="carSwatches"></div>
+      </div>
+
+      <div class="swatch-row">
+        <span class="swatch-label">House colors:</span>
+        <div class="swatches" id="houseSwatches"></div>
+      </div>
+
+      <p class="hint">Tap a color to change it. Every car color is always available on a house, so no car ever gets left out.</p>
+
+      <button id="setupApply" class="start-btn" type="button">Start Game <span class="play-icon">&#9654;</span></button>
     </div>
   </div>
 

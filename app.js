@@ -12,14 +12,35 @@
     { name: "teal", hex: "#1fb0a0" },
   ];
 
-  const LIMITS = {
-    carColors: { min: 1, max: PALETTE.length },
-    houseColors: { min: 1, max: PALETTE.length },
-    numCars: { min: 1, max: 14 },
-    numHouses: { min: 1, max: 8 },
-  };
+  const MAX_NUM_CARS = 14;
+  const MAX_NUM_HOUSES = 8;
 
-  let config = { carColors: 4, houseColors: 4, numCars: 6, numHouses: 6 };
+  const CAR_W = 60;
+  const CAR_H = 34;
+  const PARK_GAP = 4;
+  const PARK_TOP_PADDING = 14;
+  const PARK_ZONE_HEIGHT = PARK_TOP_PADDING * 2 + CAR_H;
+
+  function shuffleArray(arr) {
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  function pickDistinct(pool, count) {
+    return shuffleArray(pool).slice(0, count);
+  }
+
+  let config = {
+    numCars: 6,
+    numHouses: 4,
+    houseColorSet: pickDistinct(PALETTE, 3),
+    carColorSet: [],
+  };
+  config.carColorSet = pickDistinct(config.houseColorSet, 3);
 
   const state = {
     houses: [],
@@ -35,8 +56,10 @@
     shuffleBtn: document.getElementById("shuffleBtn"),
     setupBtn: document.getElementById("setupBtn"),
     setupOverlay: document.getElementById("setupOverlay"),
-    setupCancel: document.getElementById("setupCancel"),
+    setupClose: document.getElementById("setupClose"),
     setupApply: document.getElementById("setupApply"),
+    carSwatches: document.getElementById("carSwatches"),
+    houseSwatches: document.getElementById("houseSwatches"),
     winOverlay: document.getElementById("winOverlay"),
     playAgainBtn: document.getElementById("playAgainBtn"),
     changeSettingsBtn: document.getElementById("changeSettingsBtn"),
@@ -88,69 +111,157 @@
       </svg>`;
   }
 
-  // ---------- setup helpers ----------
+  // ---------- setup: color set helpers ----------
 
-  function clampConfig(changedKey) {
-    config.carColors = Math.min(LIMITS.carColors.max, Math.max(LIMITS.carColors.min, config.carColors));
-    if (config.houseColors < config.carColors) config.houseColors = config.carColors;
-    config.houseColors = Math.min(LIMITS.houseColors.max, Math.max(LIMITS.houseColors.min, config.houseColors));
-
-    if (config.numCars < config.carColors) config.numCars = config.carColors;
-    config.numCars = Math.min(LIMITS.numCars.max, Math.max(LIMITS.numCars.min, config.numCars));
-
-    if (config.numHouses < config.houseColors) config.numHouses = config.houseColors;
-    config.numHouses = Math.min(LIMITS.numHouses.max, Math.max(LIMITS.numHouses.min, config.numHouses));
+  function ensureCarColorsSubset() {
+    const houseNames = config.houseColorSet.map((c) => c.name);
+    config.carColorSet = config.carColorSet.map((car, i) => {
+      if (houseNames.includes(car.name)) return car;
+      const usedByOthers = config.carColorSet
+        .filter((_, j) => j !== i)
+        .map((c) => c.name);
+      const replacement = config.houseColorSet.find((hc) => !usedByOthers.includes(hc.name));
+      return replacement || config.houseColorSet[0];
+    });
   }
 
-  function renderSetupValues() {
-    document.getElementById("val-carColors").textContent = config.carColors;
-    document.getElementById("val-houseColors").textContent = config.houseColors;
+  function clampCounts() {
+    if (config.numCars < config.carColorSet.length) config.numCars = config.carColorSet.length;
+    config.numCars = Math.min(MAX_NUM_CARS, Math.max(config.carColorSet.length, config.numCars));
+
+    if (config.numHouses < config.houseColorSet.length) config.numHouses = config.houseColorSet.length;
+    config.numHouses = Math.min(MAX_NUM_HOUSES, Math.max(config.houseColorSet.length, config.numHouses));
+  }
+
+  function incHouseColors() {
+    if (config.houseColorSet.length >= PALETTE.length) return;
+    const usedNames = config.houseColorSet.map((c) => c.name);
+    const next = PALETTE.find((c) => !usedNames.includes(c.name));
+    if (next) config.houseColorSet.push(next);
+    clampCounts();
+  }
+
+  function decHouseColors() {
+    if (config.houseColorSet.length <= Math.max(1, config.carColorSet.length)) return;
+    config.houseColorSet.pop();
+    ensureCarColorsSubset();
+    clampCounts();
+  }
+
+  function incCarColors() {
+    if (config.carColorSet.length >= config.houseColorSet.length) return;
+    const usedNames = config.carColorSet.map((c) => c.name);
+    const next = config.houseColorSet.find((c) => !usedNames.includes(c.name));
+    if (next) config.carColorSet.push(next);
+    clampCounts();
+  }
+
+  function decCarColors() {
+    if (config.carColorSet.length <= 1) return;
+    config.carColorSet.pop();
+    clampCounts();
+  }
+
+  function cycleSwatch(pool, arr, index) {
+    const current = arr[index];
+    const startIdx = pool.findIndex((c) => c.name === current.name);
+    for (let step = 1; step <= pool.length; step++) {
+      const candidate = pool[(startIdx + step) % pool.length];
+      const usedElsewhere = arr.some((c, i) => i !== index && c.name === candidate.name);
+      if (!usedElsewhere) {
+        arr[index] = candidate;
+        return;
+      }
+    }
+  }
+
+  function cycleHouseSwatch(index) {
+    cycleSwatch(PALETTE, config.houseColorSet, index);
+    ensureCarColorsSubset();
+  }
+
+  function cycleCarSwatch(index) {
+    cycleSwatch(config.houseColorSet, config.carColorSet, index);
+  }
+
+  // ---------- setup UI ----------
+
+  function renderSetupUI() {
+    document.getElementById("val-carColors").textContent = config.carColorSet.length;
+    document.getElementById("val-houseColors").textContent = config.houseColorSet.length;
     document.getElementById("val-numCars").textContent = config.numCars;
     document.getElementById("val-numHouses").textContent = config.numHouses;
+
+    el.carSwatches.innerHTML = "";
+    config.carColorSet.forEach((color, i) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "swatch circle";
+      btn.style.background = color.hex;
+      btn.title = color.name;
+      btn.addEventListener("click", () => {
+        cycleCarSwatch(i);
+        renderSetupUI();
+      });
+      el.carSwatches.appendChild(btn);
+    });
+
+    el.houseSwatches.innerHTML = "";
+    config.houseColorSet.forEach((color, i) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "swatch square";
+      btn.style.background = color.hex;
+      btn.title = color.name;
+      btn.addEventListener("click", () => {
+        cycleHouseSwatch(i);
+        renderSetupUI();
+      });
+      el.houseSwatches.appendChild(btn);
+    });
   }
 
   document.querySelectorAll(".stepper").forEach((stepper) => {
     const key = stepper.dataset.key;
     stepper.querySelectorAll(".step-btn").forEach((btn) => {
       btn.addEventListener("click", () => {
-        const dir = btn.dataset.action === "inc" ? 1 : -1;
-        config[key] += dir;
-        clampConfig(key);
-        renderSetupValues();
+        const inc = btn.dataset.action === "inc";
+        if (key === "carColors") inc ? incCarColors() : decCarColors();
+        else if (key === "houseColors") inc ? incHouseColors() : decHouseColors();
+        else if (key === "numCars") {
+          config.numCars += inc ? 1 : -1;
+          clampCounts();
+        } else if (key === "numHouses") {
+          config.numHouses += inc ? 1 : -1;
+          clampCounts();
+        }
+        renderSetupUI();
       });
     });
   });
 
+  let configSnapshot = null;
+
   function openSetup() {
-    renderSetupValues();
+    configSnapshot = JSON.parse(JSON.stringify(config));
+    renderSetupUI();
     el.setupOverlay.hidden = false;
   }
 
-  function closeSetup() {
+  function closeSetup(restore) {
+    if (restore && configSnapshot) config = configSnapshot;
+    configSnapshot = null;
     el.setupOverlay.hidden = true;
   }
 
   el.setupBtn.addEventListener("click", openSetup);
-  el.setupCancel.addEventListener("click", closeSetup);
+  el.setupClose.addEventListener("click", () => closeSetup(true));
   el.setupApply.addEventListener("click", () => {
-    closeSetup();
+    closeSetup(false);
     startNewGame();
   });
 
   // ---------- game setup ----------
-
-  function shuffleArray(arr) {
-    const a = arr.slice();
-    for (let i = a.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [a[i], a[j]] = [a[j], a[i]];
-    }
-    return a;
-  }
-
-  function pickDistinct(pool, count) {
-    return shuffleArray(pool).slice(0, count);
-  }
 
   function assignColors(colorSet, count) {
     const result = [];
@@ -166,11 +277,8 @@
   }
 
   function startNewGame() {
-    const houseColorSet = pickDistinct(PALETTE, config.houseColors);
-    const carColorSet = pickDistinct(houseColorSet, config.carColors);
-
-    const houseColors = assignColors(houseColorSet, config.numHouses);
-    const carColorsAssigned = assignColors(carColorSet, config.numCars);
+    const houseColors = assignColors(config.houseColorSet, config.numHouses);
+    const carColorsAssigned = assignColors(config.carColorSet, config.numCars);
 
     state.houses = houseColors.map((color, i) => ({
       id: i,
@@ -206,8 +314,6 @@
   function renderCars() {
     el.lot.innerHTML = "";
     const lotRect = el.lot.getBoundingClientRect();
-    const carW = 92;
-    const carH = 52;
     const placed = [];
 
     state.cars.forEach((car) => {
@@ -215,7 +321,7 @@
       carEl.className = "car";
       carEl.innerHTML = svgCar(car.color.hex);
 
-      const pos = findFreeSpot(lotRect.width, lotRect.height, carW, carH, placed);
+      const pos = findFreeSpot(lotRect.width, lotRect.height, CAR_W, CAR_H, placed);
       placed.push(pos);
       carEl.style.left = `${pos.x}px`;
       carEl.style.top = `${pos.y}px`;
@@ -227,15 +333,16 @@
   }
 
   function findFreeSpot(areaW, areaH, w, h, placed) {
+    const minY = PARK_ZONE_HEIGHT + 10;
     const maxX = Math.max(0, areaW - w - 8);
-    const maxY = Math.max(0, areaH - h - 8);
-    let best = { x: Math.random() * maxX, y: Math.random() * maxY };
+    const maxY = Math.max(minY, areaH - h - 8);
+    let best = { x: Math.random() * maxX, y: minY + Math.random() * (maxY - minY) };
     for (let attempt = 0; attempt < 40; attempt++) {
-      const candidate = { x: Math.random() * maxX, y: Math.random() * maxY };
+      const candidate = { x: Math.random() * maxX, y: minY + Math.random() * (maxY - minY) };
       const ok = placed.every((p) => {
         const dx = candidate.x - p.x;
         const dy = candidate.y - p.y;
-        return Math.sqrt(dx * dx + dy * dy) > 80;
+        return Math.sqrt(dx * dx + dy * dy) > 56;
       });
       if (ok) {
         best = candidate;
@@ -257,7 +364,6 @@
     if (car.parked) return;
     const carEl = car.el;
     carEl.setPointerCapture(e.pointerId);
-    const lotRect = el.lot.getBoundingClientRect();
     const carRect = carEl.getBoundingClientRect();
 
     drag = {
@@ -320,9 +426,7 @@
     car.el.classList.add("parked");
     house.parkedCars.push(car);
 
-    const slotPos = computeSlotPosition(house);
-    car.el.style.left = `${slotPos.x}px`;
-    car.el.style.top = `${slotPos.y}px`;
+    layoutHouseRow(house);
 
     state.parkedCount++;
     updateStat();
@@ -332,22 +436,21 @@
     }
   }
 
-  function computeSlotPosition(house) {
+  function layoutHouseRow(house) {
     const gameRect = el.game.getBoundingClientRect();
     const lotRect = el.lot.getBoundingClientRect();
     const colWidth = gameRect.width / state.houses.length;
     const colCenterX = house.id * colWidth + colWidth / 2 - (lotRect.left - gameRect.left);
 
-    const carW = 92;
-    const carH = 52;
-    const n = house.parkedCars.length - 1;
-    const perRow = 2;
-    const row = Math.floor(n / perRow);
-    const col = n % perRow;
-    const gap = 6;
-    const x = colCenterX + (col === 0 ? -(carW + gap / 2) : gap / 2);
-    const y = 12 + row * (carH + 10);
-    return { x, y };
+    const n = house.parkedCars.length;
+    const rowWidth = n * CAR_W + (n - 1) * PARK_GAP;
+    const startX = colCenterX - rowWidth / 2;
+
+    house.parkedCars.forEach((car, idx) => {
+      const x = startX + idx * (CAR_W + PARK_GAP);
+      car.el.style.left = `${x}px`;
+      car.el.style.top = `${PARK_TOP_PADDING}px`;
+    });
   }
 
   // ---------- win / fireworks ----------
@@ -445,20 +548,9 @@
 
   window.addEventListener("resize", () => {
     if (!el.winOverlay.hidden) resizeFireworksCanvas();
-    repositionParkedCars();
+    state.houses.forEach(layoutHouseRow);
   });
 
-  function repositionParkedCars() {
-    state.houses.forEach((house) => {
-      house.parkedCars.forEach((car, idx) => {
-        const tmp = { ...house, parkedCars: house.parkedCars.slice(0, idx + 1) };
-        const pos = computeSlotPosition(tmp);
-        car.el.style.left = `${pos.x}px`;
-        car.el.style.top = `${pos.y}px`;
-      });
-    });
-  }
-
-  clampConfig();
+  clampCounts();
   startNewGame();
 })();
